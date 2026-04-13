@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "@cliffy/command": "jsr:@cliffy/command@^1.0.0",
+    "@clack/prompts": "npm:@clack/prompts",
+    "@std/path": "jsr:@std/path@^1.0.0"
+  },
+  "tasks": {
+    "install": "bash ./install.sh",
+    "login": "deno run --allow-net --allow-env --allow-read --allow-write main.ts login",
+    "transfers": "deno run --allow-net --allow-env --allow-read --allow-write main.ts transfers"
+  }
+}
