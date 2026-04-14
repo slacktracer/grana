@@ -1,210 +1,237 @@
 import { Command } from "@cliffy/command";
 import * as p from "@clack/prompts";
-import { getAccounts, getTransfer, getTransfers, updateTransfer, type Account, type Transfer } from "../../lib/api.ts";
 
-function fromCents(amount: number): string {
-  return (amount / 100).toFixed(2);
-}
+import {
+  getAccounts,
+  getTransfer,
+  getTransfers,
+  updateTransfer,
+} from "../../lib/api.ts";
+import type { Transfer } from "../../lib/api.ts";
+import { formatCents, formatTransferLabel } from "../../lib/format.ts";
+import {
+  exitIfCancelled,
+  runWithSpinner,
+  selectAccount,
+} from "../../lib/prompts.ts";
+import { validateAmount, validateDate } from "../../lib/validators.ts";
 
-function formatTransferLabel(t: Transfer): string {
-  const from = t.fromAccount.name;
-  const to = t.toAccount.name;
-  const amount = fromCents(t.amount);
-  const date = t.at.slice(0, 10);
-  const status = t.confirmed ? "" : " (unconfirmed)";
-  return `${from} → ${to} | $${amount} | ${date}${status}`;
-}
+const manualId = "__manual__";
+const loadAll = "__load_all__";
+
+const buildTransferOptions = ({
+  includeLoadAll,
+  limit,
+  transfers,
+}: {
+  includeLoadAll: boolean;
+  limit: number;
+  transfers: Transfer[];
+}) => {
+  const base = transfers.slice(0, limit).map((t) => ({
+    label: formatTransferLabel(t),
+    value: t.transferID,
+  }));
+
+  const extras = [
+    ...(includeLoadAll
+      ? [{ label: "Load all transfers...", value: loadAll }]
+      : []),
+    { label: "Enter transfer ID manually", value: manualId },
+  ];
+
+  return [...base, ...extras];
+};
+
+const resolveTransferID = async (initial: Transfer[]): Promise<string> => {
+  const firstChoice = exitIfCancelled(
+    await p.select({
+      message: "Select transfer to update",
+      options: buildTransferOptions({
+        includeLoadAll: true,
+        limit: 20,
+        transfers: initial,
+      }),
+    }),
+  );
+
+  if (firstChoice !== loadAll && firstChoice !== manualId) {
+    return firstChoice;
+  }
+
+  if (firstChoice === loadAll) {
+    const all = await runWithSpinner({
+      action: () => getTransfers(),
+      failure: "Failed to fetch transfers.",
+      start: "Fetching all transfers...",
+      success: (list) => `${list.length} transfer(s) loaded.`,
+    });
+
+    const secondChoice = exitIfCancelled(
+      await p.select({
+        message: "Select transfer to update",
+        options: buildTransferOptions({
+          includeLoadAll: false,
+          limit: 40,
+          transfers: all,
+        }),
+      }),
+    );
+
+    if (secondChoice !== manualId) {
+      return secondChoice;
+    }
+  }
+
+  const manual = exitIfCancelled(await p.text({ message: "Transfer ID" }));
+
+  return manual;
+};
+
+const collectUpdate = async (
+  current: Transfer,
+): Promise<Record<string, string | number | boolean>> => {
+  const fields = exitIfCancelled(
+    await p.multiselect({
+      message: "Which fields do you want to update?",
+      options: [
+        {
+          label: `From account (current: ${current.fromAccount.name})`,
+          value: "fromAccountID",
+        },
+        {
+          label: `To account (current: ${current.toAccount.name})`,
+          value: "toAccountID",
+        },
+        {
+          label: `Amount (current: $${formatCents(current.amount)})`,
+          value: "amount",
+        },
+        { label: `Date (current: ${current.at.slice(0, 16)})`, value: "at" },
+        {
+          label: `Comments (current: ${current.comments ?? "none"})`,
+          value: "comments",
+        },
+        {
+          label: `Confirmed (current: ${current.confirmed})`,
+          value: "confirmed",
+        },
+      ],
+      required: true,
+    }),
+  );
+
+  const update: Record<string, string | number | boolean> = {};
+
+  if (fields.includes("fromAccountID") || fields.includes("toAccountID")) {
+    const accounts = await runWithSpinner({
+      action: getAccounts,
+      failure: "Failed to fetch accounts.",
+      start: "Fetching accounts...",
+      success: (list) => `${list.length} account(s) loaded.`,
+    });
+
+    if (fields.includes("fromAccountID")) {
+      update.fromAccountID = await selectAccount({
+        accounts,
+        message: "From account",
+      });
+    }
+
+    if (fields.includes("toAccountID")) {
+      update.toAccountID = await selectAccount({
+        accounts,
+        message: "To account",
+      });
+    }
+  }
+
+  if (fields.includes("amount")) {
+    const value = exitIfCancelled(
+      await p.text({
+        message: `Amount (in cents, current: ${current.amount})`,
+        placeholder: String(current.amount),
+        validate: validateAmount,
+      }),
+    );
+
+    update.amount = parseInt(value, 10);
+  }
+
+  if (fields.includes("at")) {
+    const value = exitIfCancelled(
+      await p.text({
+        defaultValue: current.at.slice(0, 16),
+        message: "Date",
+        placeholder: current.at.slice(0, 16),
+        validate: validateDate,
+      }),
+    );
+
+    update.at = new Date(value).toISOString();
+  }
+
+  if (fields.includes("comments")) {
+    const value = exitIfCancelled(
+      await p.text({
+        defaultValue: current.comments ?? "",
+        message: "Comments",
+        placeholder: current.comments ?? "",
+      }),
+    );
+
+    update.comments = value;
+  }
+
+  if (fields.includes("confirmed")) {
+    update.confirmed = exitIfCancelled(
+      await p.confirm({
+        initialValue: current.confirmed,
+        message: "Confirmed?",
+      }),
+    );
+  }
+
+  return update;
+};
 
 export const updateTransferCommand = new Command()
   .description("Interactively update a transfer.")
   .action(async () => {
     p.intro("Update transfer");
 
-    const spinner = p.spinner();
-    spinner.start("Fetching recent transfers...");
+    const now = new Date();
+    const threeMonthsAgo = new Date(now);
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    let transfers: Transfer[];
-
-    try {
-      const now = new Date();
-      const threeMonthsAgo = new Date(now);
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-      transfers = await getTransfers({
-        from: threeMonthsAgo.toISOString(),
-        to: now.toISOString(),
-      });
-      spinner.stop(`${transfers.length} transfer(s) loaded (last 3 months).`);
-    } catch (err) {
-      spinner.stop("Failed to fetch data.");
-      p.outro((err as Error).message);
-      Deno.exit(1);
-    }
-
-    const MANUAL_ID = "__manual__";
-    const LOAD_ALL = "__load_all__";
-
-    const options = [
-      ...transfers.slice(0, 20).map((t) => ({
-        value: t.transferID,
-        label: formatTransferLabel(t),
-      })),
-      { value: LOAD_ALL, label: "Load all transfers..." },
-      { value: MANUAL_ID, label: "Enter transfer ID manually" },
-    ];
-
-    let selected = await p.select({
-      message: "Select transfer to update",
-      options,
+    const recent = await runWithSpinner({
+      action: () =>
+        getTransfers({
+          from: threeMonthsAgo.toISOString(),
+          to: now.toISOString(),
+        }),
+      failure: "Failed to fetch data.",
+      start: "Fetching recent transfers...",
+      success: (list) => `${list.length} transfer(s) loaded (last 3 months).`,
     });
 
-    if (p.isCancel(selected)) { p.cancel("Cancelled."); Deno.exit(0); }
+    const transferID = await resolveTransferID(recent);
 
-    if (selected === LOAD_ALL) {
-      spinner.start("Fetching all transfers...");
-      try {
-        transfers = await getTransfers();
-        spinner.stop(`${transfers.length} transfer(s) loaded.`);
-      } catch (err) {
-        spinner.stop("Failed to fetch transfers.");
-        p.outro((err as Error).message);
-        Deno.exit(1);
-      }
-
-      selected = await p.select({
-        message: "Select transfer to update",
-        options: [
-          ...transfers.slice(0, 40).map((t) => ({
-            value: t.transferID,
-            label: formatTransferLabel(t),
-          })),
-          { value: MANUAL_ID, label: "Enter transfer ID manually" },
-        ],
-      });
-
-      if (p.isCancel(selected)) { p.cancel("Cancelled."); Deno.exit(0); }
-    }
-
-    let transferID: string;
-
-    if (selected === MANUAL_ID) {
-      const input = await p.text({ message: "Transfer ID" });
-      if (p.isCancel(input)) { p.cancel("Cancelled."); Deno.exit(0); }
-      transferID = input;
-    } else {
-      transferID = selected;
-    }
-
-    spinner.start("Fetching transfer...");
-    let current: Transfer;
-    try {
-      current = await getTransfer(transferID);
-      spinner.stop("Transfer loaded.");
-    } catch (err) {
-      spinner.stop("Failed to fetch transfer.");
-      p.outro((err as Error).message);
-      Deno.exit(1);
-    }
-
-    const fields = await p.multiselect({
-      message: "Which fields do you want to update?",
-      options: [
-        { value: "fromAccountID", label: `From account (current: ${current.fromAccount.name})` },
-        { value: "toAccountID", label: `To account (current: ${current.toAccount.name})` },
-        { value: "amount", label: `Amount (current: $${fromCents(current.amount)})` },
-        { value: "at", label: `Date (current: ${current.at.slice(0, 16)})` },
-        { value: "comments", label: `Comments (current: ${current.comments ?? "none"})` },
-        { value: "confirmed", label: `Confirmed (current: ${current.confirmed})` },
-      ],
-      required: true,
+    const current = await runWithSpinner({
+      action: () => getTransfer(transferID),
+      failure: "Failed to fetch transfer.",
+      start: "Fetching transfer...",
+      success: () => "Transfer loaded.",
     });
 
-    if (p.isCancel(fields)) { p.cancel("Cancelled."); Deno.exit(0); }
+    const update = await collectUpdate(current);
 
-    const update: Record<string, string | number | boolean> = {};
+    const updated = await runWithSpinner({
+      action: () => updateTransfer(transferID, update),
+      start: "Updating transfer...",
+      success: () => "Transfer updated.",
+    });
 
-    if (fields.includes("fromAccountID") || fields.includes("toAccountID")) {
-      spinner.start("Fetching accounts...");
-      let accounts: Account[];
-      try {
-        accounts = await getAccounts();
-        spinner.stop(`${accounts.length} account(s) loaded.`);
-      } catch (err) {
-        spinner.stop("Failed to fetch accounts.");
-        p.outro((err as Error).message);
-        Deno.exit(1);
-      }
-
-      const accountOptions = accounts.map((a) => ({ value: a.accountID, label: a.name }));
-
-      if (fields.includes("fromAccountID")) {
-        const value = await p.select({ message: "From account", options: accountOptions });
-        if (p.isCancel(value)) { p.cancel("Cancelled."); Deno.exit(0); }
-        update.fromAccountID = value;
-      }
-
-      if (fields.includes("toAccountID")) {
-        const value = await p.select({ message: "To account", options: accountOptions });
-        if (p.isCancel(value)) { p.cancel("Cancelled."); Deno.exit(0); }
-        update.toAccountID = value;
-      }
-    }
-
-    if (fields.includes("amount")) {
-      const value = await p.text({
-        message: `Amount (in cents, current: ${current.amount})`,
-        placeholder: String(current.amount),
-        validate: (v) => {
-          const n = parseInt(v ?? "", 10);
-          if (isNaN(n) || n <= 0 || String(n) !== (v ?? "").trim()) return "Enter a positive integer in cents (e.g. 10050 for $100.50)";
-        },
-      });
-      if (p.isCancel(value)) { p.cancel("Cancelled."); Deno.exit(0); }
-      update.amount = parseInt(value, 10);
-    }
-
-    if (fields.includes("at")) {
-      const value = await p.text({
-        message: "Date",
-        placeholder: current.at.slice(0, 16),
-        defaultValue: current.at.slice(0, 16),
-        validate: (v) => {
-          if (isNaN(new Date(v ?? "").getTime())) return "Enter a valid date (e.g. 2026-04-01T15:00:00)";
-        },
-      });
-      if (p.isCancel(value)) { p.cancel("Cancelled."); Deno.exit(0); }
-      update.at = new Date(value).toISOString();
-    }
-
-    if (fields.includes("comments")) {
-      const value = await p.text({
-        message: "Comments",
-        placeholder: current.comments ?? "",
-        defaultValue: current.comments ?? "",
-      });
-      if (p.isCancel(value)) { p.cancel("Cancelled."); Deno.exit(0); }
-      update.comments = value;
-    }
-
-    if (fields.includes("confirmed")) {
-      const value = await p.confirm({
-        message: "Confirmed?",
-        initialValue: current.confirmed,
-      });
-      if (p.isCancel(value)) { p.cancel("Cancelled."); Deno.exit(0); }
-      update.confirmed = value;
-    }
-
-    spinner.start("Updating transfer...");
-
-    try {
-      const updated = await updateTransfer(transferID, update);
-      spinner.stop("Transfer updated.");
-      console.log(JSON.stringify(updated, null, 2));
-      p.outro("Done.");
-    } catch (err) {
-      spinner.stop("Failed.");
-      p.outro((err as Error).message);
-      Deno.exit(1);
-    }
+    console.log(JSON.stringify(updated, null, 2));
+    p.outro("Done.");
   });
