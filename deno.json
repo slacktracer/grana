@@ -6,6 +6,8 @@
     "@std/path": "jsr:@std/path@^1.0.0"
   },
   "tasks": {
+    "categories": "deno run --allow-net --allow-env --allow-read --allow-write main.ts categories",
+    "groups": "deno run --allow-net --allow-env --allow-read --allow-write main.ts groups",
     "install": "bash ./install.sh",
     "login": "deno run --allow-net --allow-env --allow-read --allow-write main.ts login",
     "operations": "deno run --allow-net --allow-env --allow-read --allow-write main.ts operations",
