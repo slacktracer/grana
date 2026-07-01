@@ -5,6 +5,7 @@
     "jsr:@cliffy/flags@1.0.0": "1.0.0",
     "jsr:@cliffy/internal@1.0.0": "1.0.0",
     "jsr:@cliffy/table@1.0.0": "1.0.0",
+    "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/fmt@^1.0.9": "1.0.9",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/path@1": "1.1.4",
@@ -36,6 +37,12 @@
       "integrity": "3fdaa9e1ef1ea62022108adabd826932bdea8dd05497079896febcd41322907f",
       "dependencies": [
         "jsr:@std/fmt"
+      ]
+    },
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
       ]
     },
     "@std/fmt@1.0.9": {
@@ -93,6 +100,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@1",
+      "jsr:@std/assert@1",
       "jsr:@std/path@1",
       "npm:@clack/prompts@*"
     ]

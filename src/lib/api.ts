@@ -6,10 +6,18 @@ export class ApiError extends Error {
   }
 }
 
+export class SessionExpiredError extends Error {
+  constructor() {
+    super("Session expired");
+  }
+}
+
 async function getCredentials(): Promise<{ baseUrl: string; cookie: string }> {
   const [config, session] = await Promise.all([loadConfig(), loadSession()]);
+
   if (!config) throw new Error("No server URL saved. Run: grana login");
   if (!session) throw new Error("Not logged in. Run: grana login");
+
   return { baseUrl: config.baseUrl, cookie: session.cookie };
 }
 
@@ -28,6 +36,10 @@ export async function apiFetch<T>(
     },
   });
 
+  if (response.status === 401) {
+    throw new SessionExpiredError();
+  }
+
   if (!response.ok) {
     throw new ApiError(response.status, `API error ${response.status}`);
   }
@@ -43,7 +55,7 @@ export async function apiLogin(
   const response = await fetch(`${baseUrl}/authentication/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ password, username }),
   });
 
   if (!response.ok) {
@@ -51,6 +63,7 @@ export async function apiLogin(
   }
 
   const user = await response.json();
+
   if (!user) throw new Error("Invalid credentials");
 
   const cookies = response.headers.getSetCookie().map((c) => c.split(";")[0]);
@@ -62,8 +75,23 @@ export async function apiLogin(
 
 export interface Account {
   accountID: string;
-  name: string;
   initialAmount: number;
+  name: string;
+}
+
+export interface OperationAccount {
+  accountID: string;
+  name: string;
+}
+
+export interface Operation {
+  account: OperationAccount;
+  accountID: string;
+  amount: number;
+  at: string;
+  comments: string;
+  operationID: string;
+  type: "Expense" | "Income";
 }
 
 export interface TransferAccount {
@@ -72,29 +100,56 @@ export interface TransferAccount {
 }
 
 export interface Transfer {
-  transferID: string;
   amount: number;
   at: string;
   atTimezone: string;
-  fromAccountID: string;
-  toAccountID: string;
-  fromAccount: TransferAccount;
-  toAccount: TransferAccount;
   comments: string | null;
   confirmed: boolean;
+  fromAccount: TransferAccount;
+  fromAccountID: string;
+  toAccount: TransferAccount;
+  toAccountID: string;
+  transferID: string;
 }
 
 export function getAccounts(): Promise<Account[]> {
   return apiFetch("/accounts");
 }
 
+export const getOperations = ({
+  from,
+  to,
+}: {
+  from: string;
+  to: string;
+}): Promise<Operation[]> => {
+  const params = new URLSearchParams({ from, to });
+
+  return apiFetch(`/operations?${params.toString()}`);
+};
+
+export const patchOperation = ({
+  accountID,
+  operationID,
+}: {
+  accountID: string;
+  operationID: string;
+}): Promise<Operation> =>
+  apiFetch(`/operations/${operationID}`, {
+    body: JSON.stringify({ accountID }),
+    method: "PATCH",
+  });
+
 export function getTransfers(
   options?: { from?: string; to?: string },
 ): Promise<Transfer[]> {
   const params = new URLSearchParams();
+
   if (options?.from) params.set("from", options.from);
   if (options?.to) params.set("to", options.to);
+
   const query = params.toString();
+
   return apiFetch(`/transfers${query ? `?${query}` : ""}`);
 }
 
@@ -105,14 +160,14 @@ export function getTransfer(transferID: string): Promise<Transfer> {
 export function createTransfer(data: {
   amount: number;
   at: string;
-  fromAccountID: string;
-  toAccountID: string;
   comments?: string;
   confirmed?: boolean;
+  fromAccountID: string;
+  toAccountID: string;
 }): Promise<Transfer> {
   return apiFetch("/transfers", {
-    method: "POST",
     body: JSON.stringify(data),
+    method: "POST",
   });
 }
 
@@ -121,14 +176,14 @@ export function updateTransfer(
   data: Partial<{
     amount: number;
     at: string;
-    fromAccountID: string;
-    toAccountID: string;
     comments: string;
     confirmed: boolean;
+    fromAccountID: string;
+    toAccountID: string;
   }>,
 ): Promise<Transfer> {
   return apiFetch(`/transfers/${transferID}`, {
-    method: "PATCH",
     body: JSON.stringify(data),
+    method: "PATCH",
   });
 }

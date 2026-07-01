@@ -2,12 +2,14 @@ import { Command } from "@cliffy/command";
 import * as p from "@clack/prompts";
 
 import { createTransfer, getAccounts } from "../../lib/api.ts";
+import type { DateTimeParts } from "../../lib/dates.ts";
+import { dateTimeISO, promptDateTimeParts } from "../../lib/dates.ts";
 import {
   exitIfCancelled,
   runWithSpinner,
   selectAccount,
 } from "../../lib/prompts.ts";
-import { validateAmount, validateDate } from "../../lib/validators.ts";
+import { validateAmount } from "../../lib/validators.ts";
 
 export const createTransferCommand = new Command()
   .description("Interactively create a transfer.")
@@ -45,16 +47,19 @@ export const createTransferCommand = new Command()
       }),
     );
 
-    const now = new Date().toISOString().slice(0, 16);
+    const now = new Date();
+    const dateDefaults: DateTimeParts = {
+      day: now.getDate(),
+      hour: now.getHours(),
+      minute: now.getMinutes(),
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+    };
 
-    const dateInput = exitIfCancelled(
-      await p.text({
-        defaultValue: now,
-        message: "Date",
-        placeholder: now,
-        validate: validateDate,
-      }),
-    );
+    const dateParts = await promptDateTimeParts({
+      defaults: dateDefaults,
+      label: "Date",
+    });
 
     const commentsInput = exitIfCancelled(
       await p.text({
@@ -68,7 +73,7 @@ export const createTransferCommand = new Command()
       action: () =>
         createTransfer({
           amount: parseInt(amountInput, 10),
-          at: new Date(dateInput).toISOString(),
+          at: dateTimeISO(dateParts),
           fromAccountID,
           toAccountID,
           ...(commentsInput ? { comments: commentsInput } : {}),

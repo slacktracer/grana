@@ -8,13 +8,15 @@ import {
   updateTransfer,
 } from "../../lib/api.ts";
 import type { Transfer } from "../../lib/api.ts";
+import type { DateTimeParts } from "../../lib/dates.ts";
+import { dateTimeISO, promptDateTimeParts } from "../../lib/dates.ts";
 import { formatCents, formatTransferLabel } from "../../lib/format.ts";
 import {
   exitIfCancelled,
   runWithSpinner,
   selectAccount,
 } from "../../lib/prompts.ts";
-import { validateAmount, validateDate } from "../../lib/validators.ts";
+import { validateAmount } from "../../lib/validators.ts";
 
 const manualId = "__manual__";
 const loadAll = "__load_all__";
@@ -159,16 +161,21 @@ const collectUpdate = async (
   }
 
   if (fields.includes("at")) {
-    const value = exitIfCancelled(
-      await p.text({
-        defaultValue: current.at.slice(0, 16),
-        message: "Date",
-        placeholder: current.at.slice(0, 16),
-        validate: validateDate,
-      }),
-    );
+    const atDate = new Date(current.at);
+    const dateDefaults: DateTimeParts = {
+      day: atDate.getDate(),
+      hour: atDate.getHours(),
+      minute: atDate.getMinutes(),
+      month: atDate.getMonth() + 1,
+      year: atDate.getFullYear(),
+    };
 
-    update.at = new Date(value).toISOString();
+    const dateParts = await promptDateTimeParts({
+      defaults: dateDefaults,
+      label: "Date",
+    });
+
+    update.at = dateTimeISO(dateParts);
   }
 
   if (fields.includes("comments")) {
@@ -202,6 +209,7 @@ export const updateTransferCommand = new Command()
 
     const now = new Date();
     const threeMonthsAgo = new Date(now);
+
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
     const recent = await runWithSpinner({
