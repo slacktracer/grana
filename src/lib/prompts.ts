@@ -1,6 +1,6 @@
 import * as p from "@clack/prompts";
 
-import type { Account } from "./api.ts";
+import type { Account, Group } from "./api.ts";
 import { SessionExpiredError } from "./api.ts";
 import { reLogin } from "./auth.ts";
 
@@ -64,6 +64,22 @@ export const runWithSpinner = async <T>({
     p.outro((err as Error).message);
     Deno.exit(1);
   }
+};
+
+export const selectGroup = async ({
+  groups,
+  initialValue,
+  message,
+}: {
+  groups: Group[];
+  initialValue?: string;
+  message: string;
+}): Promise<string> => {
+  const options = groups.map((g) => ({ label: g.name, value: g.groupID }));
+
+  const value = await p.select({ initialValue, message, options });
+
+  return exitIfCancelled(value);
 };
 
 export const selectAccount = async ({

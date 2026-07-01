@@ -1,4 +1,7 @@
-import type { Operation, Transfer } from "./api.ts";
+import type { Category, Operation, Transfer } from "./api.ts";
+
+export const formatCategoryLabel = (category: Category): string =>
+  `${category.name} (${category.group.name})`;
 
 export const formatCents = (amount: number): string =>
   (amount / 100).toFixed(2);

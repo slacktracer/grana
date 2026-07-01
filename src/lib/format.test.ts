@@ -1,7 +1,38 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 
-import type { Operation } from "./api.ts";
-import { formatCents, formatOperationRow } from "./format.ts";
+import type { Category, Operation } from "./api.ts";
+import {
+  formatCategoryLabel,
+  formatCents,
+  formatOperationRow,
+} from "./format.ts";
+
+const baseCategory: Category = {
+  categoryID: "cat-1",
+  createdAt: "2026-01-01T00:00:00Z",
+  createdAtTimezone: "UTC",
+  deleted: false,
+  group: { groupID: "grp-1", name: "Food" },
+  groupID: "grp-1",
+  name: "Groceries",
+  updatedAt: null,
+  updatedAtTimezone: "UTC",
+  userID: "user-1",
+};
+
+Deno.test("formatCategoryLabel returns name and group name", () => {
+  assertEquals(formatCategoryLabel(baseCategory), "Groceries (Food)");
+});
+
+Deno.test("formatCategoryLabel reflects different group names", () => {
+  const cat = {
+    ...baseCategory,
+    group: { groupID: "grp-2", name: "Transport" },
+    name: "Fuel",
+  };
+
+  assertEquals(formatCategoryLabel(cat), "Fuel (Transport)");
+});
 
 Deno.test("formatCents formats whole cents to two decimal places", () => {
   assertEquals(formatCents(10050), "100.50");

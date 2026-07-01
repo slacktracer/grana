@@ -79,6 +79,35 @@ export interface Account {
   name: string;
 }
 
+export interface GroupRef {
+  groupID: string;
+  name: string;
+}
+
+export interface Group {
+  createdAt: string;
+  createdAtTimezone: string;
+  deleted: boolean;
+  groupID: string;
+  name: string;
+  updatedAt: string | null;
+  updatedAtTimezone: string;
+  userID: string;
+}
+
+export interface Category {
+  categoryID: string;
+  createdAt: string;
+  createdAtTimezone: string;
+  deleted: boolean;
+  group: GroupRef;
+  groupID: string;
+  name: string;
+  updatedAt: string | null;
+  updatedAtTimezone: string;
+  userID: string;
+}
+
 export interface OperationAccount {
   accountID: string;
   name: string;
@@ -111,6 +140,54 @@ export interface Transfer {
   toAccountID: string;
   transferID: string;
 }
+
+export const getGroups = (): Promise<Group[]> => apiFetch("/groups");
+
+export const createGroup = ({ name }: { name: string }): Promise<Group> =>
+  apiFetch("/groups", {
+    body: JSON.stringify({ name }),
+    method: "POST",
+  });
+
+export const updateGroup = ({
+  groupID,
+  name,
+}: {
+  groupID: string;
+  name: string;
+}): Promise<Group> =>
+  apiFetch(`/groups/${groupID}`, {
+    body: JSON.stringify({ name }),
+    method: "PATCH",
+  });
+
+export const getCategories = (): Promise<Category[]> => apiFetch("/categories");
+
+export const createCategory = ({
+  groupID,
+  name,
+}: {
+  groupID: string;
+  name: string;
+}): Promise<Category> =>
+  apiFetch("/categories", {
+    body: JSON.stringify({ groupID, name }),
+    method: "POST",
+  });
+
+export const updateCategory = ({
+  categoryID,
+  groupID,
+  name,
+}: {
+  categoryID: string;
+  groupID?: string;
+  name?: string;
+}): Promise<Category> =>
+  apiFetch(`/categories/${categoryID}`, {
+    body: JSON.stringify({ groupID, name }),
+    method: "PATCH",
+  });
 
 export function getAccounts(): Promise<Account[]> {
   return apiFetch("/accounts");
