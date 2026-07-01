@@ -30,10 +30,12 @@ export const updateCategoryCommand = new Command()
     const categoryID = exitIfCancelled(
       await p.select({
         message: "Select category to update",
-        options: categories.map((c) => ({
-          label: formatCategoryLabel(c),
-          value: c.categoryID,
-        })),
+        options: [...categories]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((c) => ({
+            label: formatCategoryLabel(c),
+            value: c.categoryID,
+          })),
       }),
     );
 

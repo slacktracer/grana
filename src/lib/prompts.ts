@@ -75,7 +75,9 @@ export const selectGroup = async ({
   initialValue?: string;
   message: string;
 }): Promise<string> => {
-  const options = groups.map((g) => ({ label: g.name, value: g.groupID }));
+  const options = [...groups]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((g) => ({ label: g.name, value: g.groupID }));
 
   const value = await p.select({ initialValue, message, options });
 
