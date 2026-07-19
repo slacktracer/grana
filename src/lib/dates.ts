@@ -56,6 +56,20 @@ export const dateTimeISO = ({
 }: DateTimeParts): string =>
   new Date(year, month - 1, day, hour, minute, 0, 0).toISOString();
 
+export type DateTimeSecondsParts = DateTimeParts & {
+  second: number;
+};
+
+export const dateTimeSecondsISO = ({
+  day,
+  hour,
+  minute,
+  month,
+  second,
+  year,
+}: DateTimeSecondsParts): string =>
+  new Date(year, month - 1, day, hour, minute, second, 0).toISOString();
+
 const validateYear = (value: string | undefined): string | undefined => {
   const n = parseInt(value ?? "", 10);
 
