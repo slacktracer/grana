@@ -1,3 +1,4 @@
+import { parseSetCookies } from "./cookies.ts";
 import { loadConfig, loadSession } from "./session.ts";
 
 export class ApiError extends Error {
@@ -66,11 +67,7 @@ export async function apiLogin(
 
   if (!user) throw new Error("Invalid credentials");
 
-  const cookies = response.headers.getSetCookie().map((c) => c.split(";")[0]);
-
-  if (cookies.length === 0) throw new Error("No session cookies received");
-
-  return { cookie: cookies.join("; ") };
+  return { cookie: parseSetCookies(response.headers.getSetCookie()) };
 }
 
 export interface Account {

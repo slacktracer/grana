@@ -1,10 +1,11 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 
-import type { Category, Operation } from "./api.ts";
+import type { Category, Operation, Transfer } from "./api.ts";
 import {
   formatCategoryLabel,
   formatCents,
   formatOperationRow,
+  formatTransferLabel,
 } from "./format.ts";
 
 const baseCategory: Category = {
@@ -92,4 +93,37 @@ Deno.test("formatOperationRow slices at timestamp to 16 chars", () => {
   const parts = row.split(" | ");
 
   assertEquals(parts[0].length, 16);
+});
+
+const baseTransfer: Transfer = {
+  amount: 149407100,
+  at: "2026-07-17T21:53:00.000Z",
+  atTimezone: "UTC",
+  comments: null,
+  confirmed: true,
+  fromAccount: { accountID: "acc-1", name: "Unilos PJ" },
+  fromAccountID: "acc-1",
+  toAccount: { accountID: "acc-2", name: "Unilos PF" },
+  toAccountID: "acc-2",
+  transferID: "t-1",
+};
+
+Deno.test("formatTransferLabel renders accounts, amount, and date", () => {
+  assertEquals(
+    formatTransferLabel(baseTransfer),
+    "Unilos PJ → Unilos PF | $1494071.00 | 2026-07-17",
+  );
+});
+
+Deno.test("formatTransferLabel appends (unconfirmed) when not confirmed", () => {
+  const transfer = { ...baseTransfer, confirmed: false };
+
+  assertStringIncludes(formatTransferLabel(transfer), " (unconfirmed)");
+});
+
+Deno.test("formatTransferLabel omits the suffix when confirmed", () => {
+  assertEquals(
+    formatTransferLabel(baseTransfer).includes("unconfirmed"),
+    false,
+  );
 });

@@ -10,40 +10,18 @@ import {
 import type { Transfer } from "../../lib/api.ts";
 import type { DateTimeParts } from "../../lib/dates.ts";
 import { dateTimeISO, promptDateTimeParts } from "../../lib/dates.ts";
-import { formatCents, formatTransferLabel } from "../../lib/format.ts";
+import { formatCents } from "../../lib/format.ts";
 import {
   exitIfCancelled,
   runWithSpinner,
   selectAccount,
 } from "../../lib/prompts.ts";
+import {
+  buildTransferOptions,
+  loadAll,
+  manualId,
+} from "../../lib/transferOptions.ts";
 import { validateAmount } from "../../lib/validators.ts";
-
-const manualId = "__manual__";
-const loadAll = "__load_all__";
-
-const buildTransferOptions = ({
-  includeLoadAll,
-  limit,
-  transfers,
-}: {
-  includeLoadAll: boolean;
-  limit: number;
-  transfers: Transfer[];
-}) => {
-  const base = transfers.slice(0, limit).map((t) => ({
-    label: formatTransferLabel(t),
-    value: t.transferID,
-  }));
-
-  const extras = [
-    ...(includeLoadAll
-      ? [{ label: "Load all transfers...", value: loadAll }]
-      : []),
-    { label: "Enter transfer ID manually", value: manualId },
-  ];
-
-  return [...base, ...extras];
-};
 
 const resolveTransferID = async (initial: Transfer[]): Promise<string> => {
   const firstChoice = exitIfCancelled(

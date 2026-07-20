@@ -2,7 +2,6 @@ import { Command } from "@cliffy/command";
 import * as p from "@clack/prompts";
 
 import { reLogin } from "../../lib/auth.ts";
-import type { Operation } from "../../lib/api.ts";
 import {
   getAccounts,
   getOperations,
@@ -19,20 +18,7 @@ import {
 import { formatCents, formatOperationRow } from "../../lib/format.ts";
 import { runWithSpinner, selectAccount } from "../../lib/prompts.ts";
 import { loadConfig, saveConfig } from "../../lib/session.ts";
-
-const computeTotals = (
-  operations: Operation[],
-): { expense: number; income: number; net: number } => {
-  const income = operations
-    .filter((op) => op.type === "Income")
-    .reduce((sum, op) => sum + op.amount, 0);
-
-  const expense = operations
-    .filter((op) => op.type === "Expense")
-    .reduce((sum, op) => sum + op.amount, 0);
-
-  return { expense, income, net: income - expense };
-};
+import { computeTotals } from "../../lib/totals.ts";
 
 export const moveOperationCommand = new Command()
   .description("Move operations from one account to another.")
