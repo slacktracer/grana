@@ -14,7 +14,7 @@ export const loginCommand = new Command()
 
     const baseUrl = exitIfCancelled(
       await p.text({
-        defaultValue: savedConfig?.baseUrl ?? "http://localhost:2099",
+        initialValue: savedConfig?.baseUrl ?? "http://localhost:2099",
         message: "Server URL",
         placeholder: "http://localhost:2099",
       }),
