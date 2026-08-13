@@ -28,7 +28,7 @@ export const createTransferCommand = new Command()
   )
   .option(
     "-q, --quick",
-    "Enter amount and date on one line: value year month day hour minute second.",
+    "Enter amount and date on one line: value year month day hour minute [second].",
   )
   .action(async ({ full, quick }) => {
     p.intro("Create transfer");
@@ -38,7 +38,8 @@ export const createTransferCommand = new Command()
         message: "Input mode",
         options: [
           {
-            label: "Quick (one line: value year month day hour minute second)",
+            label:
+              "Quick (one line: value year month day hour minute [second])",
             value: "quick",
           },
           { label: "Full (field by field)", value: "full" },
@@ -75,8 +76,8 @@ export const createTransferCommand = new Command()
     if (mode === "quick") {
       const quickInput = exitIfCancelled(
         await p.text({
-          message: "value year month day hour minute second",
-          placeholder: "1494071 2026 7 17 21 53 0",
+          message: "value year month day hour minute [second] (* = now)",
+          placeholder: "1494071 * 7 17 21 53",
           validate: validateQuickTransfer,
         }),
       );

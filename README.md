@@ -57,8 +57,9 @@ Interactive flow:
 3. Prompts you to select the **to** account
 4. Asks for the input mode (unless `--quick`/`--full` is passed):
    - **Quick** — enter amount and date on one line:
-     `value year month day hour minute second` (e.g.
-     `1494071 2026 7 17 21 53 0`, amount in cents)
+     `value year month day hour minute [second]` (e.g.
+     `1494071 * 7 17 21 53`, amount in cents). Use `*` for any date field to
+     use the current value, and omit `second` to default it to `0`.
    - **Full** — prompts for the **amount** (in cents) and then the **date**
      field by field, defaulting to now
 5. Prompts for optional **comments**

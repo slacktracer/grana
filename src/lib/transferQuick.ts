@@ -5,20 +5,48 @@ export type QuickTransfer = DateTimeSecondsParts & {
   amount: number;
 };
 
-export const parseQuickTransfer = (value: string): QuickTransfer | null => {
+export const parseQuickTransferAt = ({
+  now,
+  value,
+}: {
+  now: Date;
+  value: string;
+}): QuickTransfer | null => {
   const parts = value.trim().split(/\s+/);
 
-  if (parts.length !== 7) {
+  if (parts.length !== 6 && parts.length !== 7) {
     return null;
   }
 
-  const nums = parts.map((x) => Number(x));
+  const amount = Number(parts[0]);
+
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return null;
+  }
+
+  const dateTokens = parts.length === 6
+    ? [...parts.slice(1), "0"]
+    : parts.slice(1);
+
+  const current = [
+    now.getFullYear(),
+    now.getMonth() + 1,
+    now.getDate(),
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+  ];
+
+  const nums = dateTokens.map((token, index) =>
+    token === "*" ? current[index] : Number(token)
+  );
 
   if (nums.some((n) => !Number.isInteger(n))) {
     return null;
   }
 
-  const [amount, year, month, day, hour, minute, second] = nums;
+  const [year, month, day, hour, minute, second] = nums;
+
   const parsed: QuickTransfer = {
     amount,
     day,
@@ -29,8 +57,7 @@ export const parseQuickTransfer = (value: string): QuickTransfer | null => {
     year,
   };
 
-  const inRange = amount > 0 &&
-    year >= 1970 && year <= 2100 &&
+  const inRange = year >= 1970 && year <= 2100 &&
     month >= 1 && month <= 12 &&
     day >= 1 && day <= 31 &&
     hour >= 0 && hour <= 23 &&
@@ -44,10 +71,13 @@ export const parseQuickTransfer = (value: string): QuickTransfer | null => {
   return parsed;
 };
 
+export const parseQuickTransfer = (value: string): QuickTransfer | null =>
+  parseQuickTransferAt({ now: new Date(), value });
+
 export const validateQuickTransfer = (
   value: string | undefined,
 ): string | undefined => {
   if (parseQuickTransfer(value ?? "") === null) {
-    return "Enter: value year month day hour minute second (e.g. 1494071 2026 7 17 21 53 0)";
+    return "Enter: value year month day hour minute [second] (e.g. 1494071 * 7 17 21 53; * = now)";
   }
 };

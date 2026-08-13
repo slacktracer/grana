@@ -1,6 +1,10 @@
 import { assertEquals } from "@std/assert";
 
-import { parseQuickTransfer, validateQuickTransfer } from "./transferQuick.ts";
+import {
+  parseQuickTransfer,
+  parseQuickTransferAt,
+  validateQuickTransfer,
+} from "./transferQuick.ts";
 
 Deno.test("parseQuickTransfer parses a valid line", () => {
   assertEquals(parseQuickTransfer("1494071 2026 7 17 21 53 0"), {
@@ -27,7 +31,7 @@ Deno.test("parseQuickTransfer tolerates surrounding and repeated whitespace", ()
 });
 
 Deno.test("parseQuickTransfer rejects wrong token counts", () => {
-  assertEquals(parseQuickTransfer("1494071 2026 7 17 21 53"), null);
+  assertEquals(parseQuickTransfer("1494071 2026 7 17 21"), null);
   assertEquals(parseQuickTransfer("1494071 2026 7 17 21 53 0 99"), null);
   assertEquals(parseQuickTransfer(" "), null);
   assertEquals(parseQuickTransfer(""), null);
@@ -90,4 +94,74 @@ Deno.test("validateQuickTransfer returns an error string for invalid input", () 
   const error = validateQuickTransfer("nope");
 
   assertEquals(typeof error, "string");
+});
+
+const getFixedNow = () => new Date(2026, 6, 17, 21, 53, 42);
+
+Deno.test("parseQuickTransferAt substitutes * with the current value", () => {
+  const now = getFixedNow();
+
+  assertEquals(
+    parseQuickTransferAt({ now, value: "100 * 7 17 21 53 0" })?.year,
+    2026,
+  );
+  assertEquals(
+    parseQuickTransferAt({ now, value: "100 2026 * 17 21 53 0" })?.month,
+    7,
+  );
+  assertEquals(
+    parseQuickTransferAt({ now, value: "100 2026 7 * 21 53 0" })?.day,
+    17,
+  );
+  assertEquals(
+    parseQuickTransferAt({ now, value: "100 2026 7 17 * 53 0" })?.hour,
+    21,
+  );
+  assertEquals(
+    parseQuickTransferAt({ now, value: "100 2026 7 17 21 * 0" })?.minute,
+    53,
+  );
+  assertEquals(
+    parseQuickTransferAt({ now, value: "100 2026 7 17 21 53 *" })?.second,
+    42,
+  );
+});
+
+Deno.test("parseQuickTransferAt defaults omitted seconds to 0", () => {
+  assertEquals(
+    parseQuickTransferAt({ now: getFixedNow(), value: "100 2026 7 17 21 53" })
+      ?.second,
+    0,
+  );
+});
+
+Deno.test("parseQuickTransferAt allows * for every date field at once", () => {
+  assertEquals(
+    parseQuickTransferAt({ now: getFixedNow(), value: "100 * * * * * *" }),
+    {
+      amount: 100,
+      day: 17,
+      hour: 21,
+      minute: 53,
+      month: 7,
+      second: 42,
+      year: 2026,
+    },
+  );
+});
+
+Deno.test("parseQuickTransferAt rejects * for the amount", () => {
+  assertEquals(
+    parseQuickTransferAt({ now: getFixedNow(), value: "* 2026 7 17 21 53 0" }),
+    null,
+  );
+});
+
+Deno.test("parseQuickTransferAt rejects an invalid calendar date after substitution", () => {
+  const now = new Date(2026, 0, 31); // Jan 31
+
+  assertEquals(
+    parseQuickTransferAt({ now, value: "100 2026 2 * 21 53 0" }),
+    null,
+  );
 });
