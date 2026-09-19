@@ -57,9 +57,9 @@ Interactive flow:
 3. Prompts you to select the **to** account
 4. Asks for the input mode (unless `--quick`/`--full` is passed):
    - **Quick** — enter amount and date on one line:
-     `value year month day hour minute [second]` (e.g.
-     `1494071 * 7 17 21 53`, amount in cents). Use `*` for any date field to
-     use the current value, and omit `second` to default it to `0`.
+     `value year month day hour minute [second]` (e.g. `1494071 * 7 17 21 53`,
+     amount in cents). Use `*` for any date field to use the current value, and
+     omit `second` to default it to `0`.
    - **Full** — prompts for the **amount** (in cents) and then the **date**
      field by field, defaulting to now
 5. Prompts for optional **comments**
@@ -91,6 +91,70 @@ Interactive flow:
    reference
 
 Prints the updated transfer as JSON on success.
+
+---
+
+### Create operations from a JSON file
+
+```bash
+deno task operations create ./operations.json
+```
+
+Reads a JSON file, resolves accounts and categories, shows what it will create,
+asks for confirmation, then POSTs each operation. Options:
+
+- `--dry-run` — print the resolved payloads and exit without creating anything
+- `-y`, `--yes` — skip the confirmation prompt
+
+Nothing is sent if any entry is invalid; every error is listed with its entry
+number so the whole file can be fixed in one pass.
+
+#### File format
+
+Either a bare array of operations, or an object with `defaults` (merged into
+every entry, per-entry values win) and `operations`:
+
+```json
+{
+  "defaults": {
+    "atTimezone": "America/Sao_Paulo",
+    "confirmed": true,
+    "type": "Expense",
+    "unitCount": 1
+  },
+  "operations": [
+    {
+      "account": "MasterCard Inter",
+      "amount": -6400,
+      "at": "2026-09-17T08:12",
+      "category": "Miscelânea/Supermercado",
+      "comments": "OPLIMA"
+    }
+  ]
+}
+```
+
+Fields:
+
+- `account` / `accountID` — required (one of them). `account` matches an account
+  name, case-insensitively; `accountID` wins when both are present.
+- `category` / `categoryID` — required (one of them). `category` matches a
+  category name or `Group/Name`; an ambiguous name is an error.
+- `at` — required. With a `Z` or `±HH:MM` offset it is used as given; without
+  one it is read as local wall-clock time (`2026-09-17T08:12`). A date-only
+  value becomes local midnight.
+- `amount` — integer cents. The sign is forced from `type`, so `6400` and
+  `-6400` both mean `-6400` for an `Expense`.
+- `amountPerUnit` — optional integer cents. When present, `amount` is derived as
+  `unitCount * amountPerUnit`; otherwise `amountPerUnit` is `amount / unitCount`
+  and must divide evenly.
+- `unitCount` — optional integer, defaults to `1`.
+- `type` — `"Expense"` (default) or `"Income"`.
+- `comments` — optional string, defaults to `""`.
+- `confirmed` — optional boolean, defaults to `true`.
+- `atTimezone` — optional IANA name, defaults to the machine timezone.
+- `operationID` — optional UUID. One is generated when it is absent; supplying
+  it makes a re-run idempotent (the server rejects a duplicate ID).
 
 ---
 

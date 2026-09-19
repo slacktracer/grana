@@ -190,6 +190,29 @@ export function getAccounts(): Promise<Account[]> {
   return apiFetch("/accounts");
 }
 
+export interface CreateOperationData {
+  accountID: string;
+  amount: number;
+  amountPerUnit: number;
+  at: string;
+  atTimezone: string;
+  categoryID: string;
+  comments: string;
+  confirmed: boolean;
+  createdAtTimezone: string;
+  operationID: string;
+  type: "Expense" | "Income";
+  unitCount: number;
+}
+
+export const createOperation = (
+  { data }: { data: CreateOperationData },
+): Promise<Operation> =>
+  apiFetch(`/operations/${data.operationID}`, {
+    body: JSON.stringify(data),
+    method: "POST",
+  });
+
 export const getOperations = ({
   from,
   to,
