@@ -11,12 +11,16 @@ import {
 import type { DateParts } from "../../lib/dates.ts";
 import {
   endOfDayISO,
-  promptDateParts,
   sanitizeDateParts,
   startOfDayISO,
 } from "../../lib/dates.ts";
 import { formatCents, formatOperationRow } from "../../lib/format.ts";
-import { runWithSpinner, selectAccount } from "../../lib/prompts.ts";
+import { parseQuickDate, validateQuickDate } from "../../lib/moveQuick.ts";
+import {
+  exitIfCancelled,
+  runWithSpinner,
+  selectAccount,
+} from "../../lib/prompts.ts";
 import { loadConfig, saveConfig } from "../../lib/session.ts";
 import { computeTotals } from "../../lib/totals.ts";
 
@@ -71,15 +75,31 @@ export const moveOperationCommand = new Command()
       config.operations?.toDate,
     ) ?? todayParts;
 
-    const fromDate = await promptDateParts({
-      defaults: fromDefaults,
-      label: "From date",
-    });
+    const fromInput = exitIfCancelled(
+      await p.text({
+        message: "From date (year month day, * = default)",
+        placeholder: "* * *",
+        validate: validateQuickDate({ defaults: fromDefaults }),
+      }),
+    );
 
-    const toDate = await promptDateParts({
+    const fromDate = parseQuickDate({
+      defaults: fromDefaults,
+      value: fromInput,
+    }) as DateParts;
+
+    const toInput = exitIfCancelled(
+      await p.text({
+        message: "To date (year month day, * = default)",
+        placeholder: "* * *",
+        validate: validateQuickDate({ defaults: toDefaults }),
+      }),
+    );
+
+    const toDate = parseQuickDate({
       defaults: toDefaults,
-      label: "To date",
-    });
+      value: toInput,
+    }) as DateParts;
 
     await saveConfig({
       ...config,
