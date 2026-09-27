@@ -6,8 +6,10 @@
     "@std/path": "jsr:@std/path@^1.0.0"
   },
   "tasks": {
+    "build": "deno task compile && deno task install",
     "categories": "deno run --allow-net --allow-env --allow-read --allow-write main.ts categories",
     "groups": "deno run --allow-net --allow-env --allow-read --allow-write main.ts groups",
+    "compile": "rm -f grana && deno compile --allow-net --allow-env --allow-read --allow-write -o grana main.ts",
     "install": "bash ./install.sh",
     "login": "deno run --allow-net --allow-env --allow-read --allow-write main.ts login",
     "operations": "deno run --allow-net --allow-env --allow-read --allow-write main.ts operations",
