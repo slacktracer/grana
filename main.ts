@@ -6,6 +6,7 @@ import { createCategoryCommand } from "./src/commands/categories/create.ts";
 import { updateCategoryCommand } from "./src/commands/categories/update.ts";
 import { createGroupCommand } from "./src/commands/groups/create.ts";
 import { updateGroupCommand } from "./src/commands/groups/update.ts";
+import { createOperationsCommand } from "./src/commands/operations/create.ts";
 import { moveOperationCommand } from "./src/commands/operations/move.ts";
 import { createTransferCommand } from "./src/commands/transfers/create.ts";
 import { updateTransferCommand } from "./src/commands/transfers/update.ts";
@@ -34,6 +35,7 @@ await new Command()
     "operations",
     new Command()
       .description("Manage operations.")
+      .command("create", createOperationsCommand)
       .command("move", moveOperationCommand),
   )
   .command(
